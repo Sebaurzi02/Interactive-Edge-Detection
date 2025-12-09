@@ -29,7 +29,7 @@ At the current stage, the project focuses on:
   - dataset (BSDS500)
 -Initial integration of:
   - **Canny**, implemented **from scratch without external libraries**, strictly following the theoretical formulation and the classical processing stages of the algorithm.  
-  The standalone implementation is available at: [Canny Edge Detector](<(https://github.com/Sebaurzi02/Canny-Implementation)>)
+  The standalone implementation is available at: [Canny Edge Detector](https://github.com/Sebaurzi02/Canny-Implementation)
 
   - **TEED**, executed via command-line inference in an Anaconda environment
 
