@@ -65,11 +65,16 @@ def test_dataset():
         """
         canny_edge_detector(sample["image"])
 
-def canny_edge_detector(img, low=10, high=100, sigma=0.5, T=0.3):
+"""low=20, high=50, sigma=0.5, T=0.3 QUESTO è TOP SECONDO ME"""
+"""low=10, high=100, sigma=0.5, T=0.3"""
+"""low=20, high=60, sigma=0.5, T=0.2"""
+"""low=20, high=60, sigma=1, T=0.3"""
+"""low=10, high=90, sigma=1.4, T=0.4"""
+def canny_edge_detector(img, low=10, high=90, sigma=1.4, T=0.4):
     return canny_pip(img, low, high, sigma, T)
 
 if __name__ == "__main__":
-    """img=test_single_image()
+    img=test_single_image()
     canny_edge_detector(img)
-    test_dataset()"""
-    run_teed()
+    """test_dataset()"""
+    """run_teed()"""
