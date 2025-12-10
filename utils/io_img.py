@@ -19,12 +19,7 @@ def load_single_image(path: str, grayscale: bool = True) -> np.ndarray:
 
 """DATASET"""
 def load_bsds500(dataset_root: str,split: str = "test",max_images: int | None = None,grayscale: bool = True) -> List[Dict]:
-    img_dir = (
-        Path(dataset_root)
-        / "data"
-        / "images"
-        / split
-    )
+    img_dir = (Path(dataset_root))
 
     if not img_dir.exists():
         raise FileNotFoundError(f"dataset non trovato: {img_dir}")
