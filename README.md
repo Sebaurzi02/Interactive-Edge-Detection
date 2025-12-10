@@ -1,4 +1,4 @@
-# Interactive Edge Detection Benchmark (Jupyter)
+# Interactive Edge Detection Benchmark (Python)
 
 This repository contains the development of an **interactive Jupyter Notebook–based framework** for the comparison and evaluation of **edge detection algorithms**, including both classical and deep learning–based approaches.
 
