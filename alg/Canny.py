@@ -156,6 +156,11 @@ def canny_pip(img, low=10, high=100, sigma=0.5,T=0.3):
     quantZ = Quantizza_angoli(Angolo)
     nms = NonMaxSupp(quantZ, Angolo, mg)
     threshold = DoubleThresholding(nms, low, high)
-    plt.figure(figsize = (6,6))
+    print(threshold.min(), threshold.max(), threshold.dtype)
+    
+    plt.figure(figsize=(6, 6))
     plt.imshow(threshold, cmap='gray')
+    plt.axis("off")
+    plt.show()
+
 
