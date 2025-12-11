@@ -37,7 +37,6 @@ At the current stage, the project focuses on:
 ## Technologies Used
 
 - Python
-- Jupyter Notebook
 - OpenCV / NumPy
 - ipywidgets
 - subprocess (for external deep learning models)
@@ -49,8 +48,8 @@ At the current stage, the project focuses on:
 
 ```text
 .
-├── notebooks/
-│   └── interactive_edge_detection.ipynb
+├── UI/
+│   └── interactive_edge_detection.py
 ├── algorithms/
 │   ├── canny.py
 │   ├── sobel.py
