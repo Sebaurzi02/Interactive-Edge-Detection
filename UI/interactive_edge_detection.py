@@ -10,6 +10,8 @@ from tkinter import ttk
 from tkinter import filedialog
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import subprocess
+import shutil
 from PIL import Image, ImageTk
 import numpy as np
 
@@ -19,6 +21,14 @@ from utils.io_img import load_single_image
 
 class EdgeDetApp:
     def __init__(self, master):
+        self.mode = "CLASSIC"
+
+        self.teed_input_dir = project_root / "models" / "TEED" / "data"
+        self.teed_output_dir = project_root / "models" / "TEED" / "result" / "BIPED2CLASSIC" / "fused"
+
+        self.teed_images = []
+        self.teed_index = 0
+
         self.master = master
         master.title("Edge Detection App UI")
 
@@ -79,17 +89,48 @@ class EdgeDetApp:
         self.canvas.get_tk_widget().pack(side=tk.RIGHT, fill="both", expand=True)
         self.current_img = None
 
+        tk.Button(control_frame, text="◀ Prev", command=self.prev_teed).pack(pady=2)
+        tk.Button(control_frame, text="Next ▶", command=self.next_teed).pack(pady=2)
+
+
     def load_image(self):
-        file_path = filedialog.askopenfilename()
+        file_path = filedialog.askopenfilename(
+            filetypes=[("Images", "*.png *.jpg *.jpeg *.bmp")]
+        )
         if not file_path:
             return
 
+        if self.mode == "CLASSIC":
+            self.load_classic_image(file_path)
+
+        elif self.mode == "TEED":
+            self.load_teed_image(file_path)
+
+    def load_classic_image(self, file_path):
         self.current_img = load_single_image(file_path)
 
         self.ax[0].clear()
         self.ax[0].imshow(self.current_img, cmap="gray")
         self.ax[0].set_title("Input")
         self.ax[0].axis("off")
+
+        self.ax[1].clear()
+        self.ax[1].axis("off")
+
+        self.canvas.draw()
+
+    def load_teed_image(self, file_path):
+        self.teed_input_dir.mkdir(parents=True, exist_ok=True)
+
+        dst = self.teed_input_dir / Path(file_path).name
+        shutil.copy(file_path, dst)
+
+        print("[TEED] Copied to:", dst)
+
+    def clear_plots(self):
+        for ax in self.ax:
+            ax.clear()
+            ax.axis("off")
         self.canvas.draw()
 
     # CAMBIO ALGORITMO → mostra/nasconde parametri Canny
@@ -99,21 +140,11 @@ class EdgeDetApp:
         self.canny_frame.pack_forget()
 
         if algo == "Canny":
+            self.mode = "CLASSIC"
             self.canny_frame.pack(pady=10)
-
-
-    # RUN ALGORITHM
-    def run_algorithm(self):
-        if self.current_img is None:
-            print("Load an image first.")
-            return
-
-        algo = self.alg_var.get()
-
-        if algo == "Canny":
-            self.run_canny()
-        else:
-            print(f"Algorithm {algo} not implemented yet.")
+        elif algo == "TEED":
+            self.mode = "TEED"
+            self.clear_plots()
 
     # ESEGUE CANNY CON PARAMETRI
     def run_canny(self):
@@ -133,7 +164,105 @@ class EdgeDetApp:
         self.ax[1].axis("off")
 
         self.canvas.draw()
+    
+    def show_teed_image(self):
+        output_path = self.teed_images[self.teed_index]
+        input_path = self.teed_input_dir / output_path.name
 
+        input_img = load_single_image(str(input_path))
+        output_img = load_single_image(str(output_path))
+
+        self.ax[0].clear()
+        self.ax[0].imshow(input_img, cmap="gray")
+        self.ax[0].set_title("TEED Input")
+        self.ax[0].axis("off")
+
+        self.ax[1].clear()
+        self.ax[1].imshow(output_img, cmap="gray")
+        self.ax[1].set_title("TEED Output")
+        self.ax[1].axis("off")
+
+        self.canvas.draw()
+
+
+    def load_teed_results(self):
+        if not self.teed_output_dir.exists():
+            print("[TEED] Output directory not found")
+            return
+
+        self.teed_images = sorted(self.teed_output_dir.glob("*.png"))
+        self.teed_index = 0
+
+        if not self.teed_images:
+            print("[TEED] No output images found")
+            return
+
+        self.show_teed_image()
+
+    def run_teed(self):
+        # path alla root del progetto
+        project_root = Path(__file__).resolve().parent.parent
+
+        # path a models/TEED
+        teed_dir = project_root / "models" / "TEED"
+
+        if not teed_dir.exists():
+            print("[ERROR] TEED directory not found:", teed_dir)
+            return
+
+        cmd = [
+            sys.executable,   # usa lo stesso python dell'ambiente attivo
+            "main.py",
+            "--choose_test_data=-1"
+        ]
+
+        print("[TEED] Running:", " ".join(cmd))
+        print("[TEED] Working dir:", teed_dir)
+
+        try:
+            subprocess.run(
+                cmd,
+                cwd=teed_dir,
+                check=True
+            )
+            print("[TEED] Finished successfully")
+
+        except subprocess.CalledProcessError as e:
+            print("[TEED] Error during execution")
+            print(e)
+        
+        if not self.teed_output_dir.exists():
+            print("[TEED] Output directory not created yet:")
+            print(self.teed_output_dir)
+            return
+
+        print("[TEED] Output directory found")
+    
+    # RUN ALGORITHM
+    def run_algorithm(self):
+        if self.current_img is None and self.mode == "CLASSIC":
+            print("Load an image first.")
+            return
+
+        algo = self.alg_var.get()
+
+        if algo == "Canny":
+            self.run_canny()
+        elif algo == "TEED":
+            self.run_teed()
+            self.load_teed_results()
+        else:
+            print(f"Algorithm {algo} not implemented yet.")
+
+    def next_teed(self):
+        if self.teed_images:
+            self.teed_index = (self.teed_index + 1) % len(self.teed_images)
+            self.show_teed_image()
+
+    def prev_teed(self):
+        if self.teed_images:
+            self.teed_index = (self.teed_index - 1) % len(self.teed_images)
+            self.show_teed_image()
 
 root = tk.Tk()
 app = EdgeDetApp(root)
