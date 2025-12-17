@@ -26,6 +26,10 @@ class EdgeDetApp:
         self.teed_input_dir = project_root / "models" / "TEED" / "data"
         self.teed_output_dir = project_root / "models" / "TEED" / "result" / "BIPED2CLASSIC" / "fused"
 
+        self.bsds_root = project_root / "data" / "BSDS500" / "images"
+        self.bsds_splits = ["train", "val", "test"]
+
+
         self.teed_images = []
         self.teed_index = 0
 
@@ -82,6 +86,15 @@ class EdgeDetApp:
         # Bottone esegui
         tk.Button(control_frame,text="Run Algorithm",command=self.run_algorithm,width=20).pack(pady=15)
 
+        self.teed_dataset_frame = tk.Frame(control_frame)
+        tk.Label(self.teed_dataset_frame, text="BSDS500 split:").pack()
+
+        self.bsds_var = tk.StringVar(value="test")
+        self.bsds_menu = ttk.Combobox(self.teed_dataset_frame,textvariable=self.bsds_var,values=self.bsds_splits,state="readonly",width=15)
+        self.bsds_menu.pack(pady=3)
+
+        tk.Button(self.teed_dataset_frame,text="Load BSDS500",command=self.load_bsds500_teed,width=20).pack(pady=5)
+
         # Grafico
         self.fig, self.ax = plt.subplots(1, 2, figsize=(12, 6))
         self.fig.tight_layout()
@@ -125,7 +138,49 @@ class EdgeDetApp:
         dst = self.teed_input_dir / Path(file_path).name
         shutil.copy(file_path, dst)
 
+        # lista input coerente
+        self.teed_input_images = [dst]
+
         print("[TEED] Copied to:", dst)
+
+    
+    def load_bsds500_teed(self):
+        split = self.bsds_var.get()
+        src_dir = self.bsds_root / split
+
+        if not src_dir.exists():
+            print("[BSDS] Split not found:", src_dir)
+            return
+
+        self.teed_input_dir.mkdir(parents=True, exist_ok=True)
+
+        # pulizia input TEED
+        for f in self.teed_input_dir.glob("*"):
+            f.unlink()
+
+        images = sorted(
+            list(src_dir.glob("*.jpg")) + list(src_dir.glob("*.png"))
+        )
+
+        if not images:
+            print("[BSDS] No images found in", src_dir)
+            return
+
+        self.teed_input_images = []
+
+        print(f"[BSDS] Copying {len(images)} images from {split}")
+
+        for img_path in images:
+            dst = self.teed_input_dir / img_path.name
+            shutil.copy(img_path, dst)
+            self.teed_input_images.append(dst)
+
+        print("[BSDS] Copy completed, running TEED...")
+
+        self.run_teed()
+        self.load_teed_results()
+
+
 
     def clear_plots(self):
         for ax in self.ax:
@@ -138,6 +193,7 @@ class EdgeDetApp:
         algo = self.alg_var.get()
 
         self.canny_frame.pack_forget()
+        self.teed_dataset_frame.pack_forget()
 
         if algo == "Canny":
             self.mode = "CLASSIC"
@@ -145,6 +201,7 @@ class EdgeDetApp:
         elif algo == "TEED":
             self.mode = "TEED"
             self.clear_plots()
+            self.teed_dataset_frame.pack(pady=10)
 
     # ESEGUE CANNY CON PARAMETRI
     def run_canny(self):
@@ -166,8 +223,13 @@ class EdgeDetApp:
         self.canvas.draw()
     
     def show_teed_image(self):
+        if not self.teed_images or not self.teed_input_images:
+            return
+
+        idx = min(self.teed_index, len(self.teed_input_images) - 1)
+
+        input_path = self.teed_input_images[idx]
         output_path = self.teed_images[self.teed_index]
-        input_path = self.teed_input_dir / output_path.name
 
         input_img = load_single_image(str(input_path))
         output_img = load_single_image(str(output_path))
@@ -183,6 +245,7 @@ class EdgeDetApp:
         self.ax[1].axis("off")
 
         self.canvas.draw()
+
 
 
     def load_teed_results(self):
