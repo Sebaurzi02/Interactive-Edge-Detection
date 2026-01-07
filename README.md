@@ -22,9 +22,6 @@ The project focuses on **visual comparison**, **robustness analysis**, and **mod
 ##  Supported Methods
 
 ### Classical Edge Detectors
-
-* Sobel
-* Laplacian of Gaussian (LoG)
 * **Canny (custom implementation)**
 
 ### Deep Learning–Based Edge Detectors
