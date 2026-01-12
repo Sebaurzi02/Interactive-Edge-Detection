@@ -98,9 +98,6 @@ DexiNed is also trained on the **BIPED dataset**, making it well-suited for real
 │   └── interactive_edge_detection.ipynb
 ├── algorithms/
 │   ├── canny.py
-│   ├── sobel.py
-│   ├── log.py
-│   └── wrappers_dl.py
 ├── datasets/
 │   └── BSDS500/
 ├── models/
