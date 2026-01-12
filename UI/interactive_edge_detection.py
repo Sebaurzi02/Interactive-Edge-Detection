@@ -54,7 +54,7 @@ class EdgeDetApp:
         self.alg_menu = ttk.Combobox(
             control_frame,
             textvariable=self.alg_var,
-            values=["Canny", "Sobel", "LoG", "TEED", "DexiNed"]
+            values=["Canny", "TEED", "DexiNed"]
         )
         self.alg_menu.pack(pady=5)
         self.alg_menu.bind("<<ComboboxSelected>>", self.on_algorithm_change)
