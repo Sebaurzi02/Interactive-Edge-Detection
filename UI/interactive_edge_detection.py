@@ -23,12 +23,25 @@ class EdgeDetApp:
     def __init__(self, master):
         self.mode = "CLASSIC"
 
+        #TEED
         self.teed_input_dir = project_root / "models" / "TEED" / "data"
         self.teed_output_dir = project_root / "models" / "TEED" / "result" / "BIPED2CLASSIC" / "fused"
 
+        #BSDS500 for TEED
         self.bsds_root = project_root / "data" / "BSDS500" / "images"
         self.bsds_splits = ["train", "val", "test"]
 
+        #DexiNed
+        self.dexined_dir = project_root / "models" / "DexiNed-master"
+        self.dexined_output_dir = self.dexined_dir / "results"
+        # Percorsi DexiNed
+        self.dexined_dir = project_root / "models" / "DexiNed-master"
+        self.dexined_fused_dir = self.dexined_dir / "result" / "BIPED2BIPED" / "fused"
+        self.dexined_avg_dir = self.dexined_dir / "result" / "BIPED2BIPED" / "avg"
+
+        self.dexined_images = []
+        self.dexined_index = 0
+        self.dexined_mode = "fused"   # default
 
         self.teed_images = []
         self.teed_index = 0
@@ -104,6 +117,23 @@ class EdgeDetApp:
 
         tk.Button(control_frame, text="◀ Prev", command=self.prev_teed).pack(pady=2)
         tk.Button(control_frame, text="Next ▶", command=self.next_teed).pack(pady=2)
+
+
+        # Frame per opzioni DexiNed
+        self.dexined_frame = tk.Frame(control_frame)
+
+        tk.Label(self.dexined_frame, text="DexiNed Output Type:").pack()
+
+        self.dexined_var = tk.StringVar(value="fused")
+
+        self.dexined_menu = ttk.Combobox(
+            self.dexined_frame,
+            textvariable=self.dexined_var,
+            values=["fused", "avg"],
+            state="readonly",
+            width=15
+        )
+        self.dexined_menu.pack(pady=3)
 
 
     def load_image(self):
@@ -202,6 +232,11 @@ class EdgeDetApp:
             self.mode = "TEED"
             self.clear_plots()
             self.teed_dataset_frame.pack(pady=10)
+        elif algo == "DexiNed":
+            self.mode = "DEXINED"
+            self.clear_plots()
+            self.dexined_frame.pack(pady=10)
+
 
     # ESEGUE CANNY CON PARAMETRI
     def run_canny(self):
@@ -246,6 +281,35 @@ class EdgeDetApp:
 
         self.canvas.draw()
 
+    def show_dexined_image(self):
+        if not self.dexined_images:
+            return
+
+        idx = self.dexined_index
+        output_path = self.dexined_images[idx]
+
+        # carica output
+        output_img = load_single_image(str(output_path))
+
+        # carica input corrispondente se disponibile
+        if hasattr(self, "dexined_input_images") and self.dexined_input_images:
+            input_path = self.dexined_input_images[idx]
+            input_img = load_single_image(str(input_path))
+        else:
+            input_img = np.zeros_like(output_img)
+
+        self.ax[0].clear()
+        self.ax[0].imshow(input_img, cmap="gray")
+        self.ax[0].set_title("DexiNed Input")
+        self.ax[0].axis("off")
+
+        self.ax[1].clear()
+        self.ax[1].imshow(output_img, cmap="gray")
+        self.ax[1].set_title(f"DexiNed Output ({self.dexined_var.get()})")
+        self.ax[1].axis("off")
+
+        self.canvas.draw()
+
 
 
     def load_teed_results(self):
@@ -261,6 +325,30 @@ class EdgeDetApp:
             return
 
         self.show_teed_image()
+    
+    def load_dexined_results(self):
+        selected = self.dexined_var.get()
+
+        if selected == "fused":
+            output_dir = self.dexined_fused_dir
+        else:
+            output_dir = self.dexined_avg_dir
+
+        if not output_dir.exists():
+            print("[DexiNed] Output directory not found:", output_dir)
+            return
+
+        self.dexined_images = sorted(output_dir.glob("*.*"))  # prende png, jpg ecc.
+        self.dexined_index = 0
+
+        if not self.dexined_images:
+            print("[DexiNed] No output images found in", output_dir)
+            return
+
+        print(f"[DexiNed] Loaded {len(self.dexined_images)} images from {selected}")
+
+        self.show_dexined_image()
+
 
     def run_teed(self):
         # path alla root del progetto
@@ -301,6 +389,34 @@ class EdgeDetApp:
 
         print("[TEED] Output directory found")
     
+    def run_dexined(self):
+        if not self.dexined_dir.exists():
+            print("[ERROR] DexiNed directory not found:", self.dexined_dir)
+            return
+
+        cmd = [
+            sys.executable,
+            "main.py",
+            "--choose_test_data",
+            "0"
+        ]
+
+        print("[DexiNed] Running:", " ".join(cmd))
+        print("[DexiNed] Working dir:", self.dexined_dir)
+
+        try:
+            subprocess.run(
+                cmd,
+                cwd=self.dexined_dir,
+                check=True
+            )
+            print("[DexiNed] Finished successfully")
+
+        except subprocess.CalledProcessError as e:
+            print("[DexiNed] Error during execution")
+            print(e)
+
+    
     # RUN ALGORITHM
     def run_algorithm(self):
         if self.current_img is None and self.mode == "CLASSIC":
@@ -314,6 +430,9 @@ class EdgeDetApp:
         elif algo == "TEED":
             self.run_teed()
             self.load_teed_results()
+        elif algo == "DexiNed":
+            self.run_dexined()
+            self.load_dexined_results()
         else:
             print(f"Algorithm {algo} not implemented yet.")
 
@@ -321,11 +440,18 @@ class EdgeDetApp:
         if self.teed_images:
             self.teed_index = (self.teed_index + 1) % len(self.teed_images)
             self.show_teed_image()
+        elif self.mode == "DEXINED" and self.dexined_images:
+            self.dexined_index = (self.dexined_index + 1) % len(self.dexined_images)
+            self.show_dexined_image()
+
 
     def prev_teed(self):
         if self.teed_images:
             self.teed_index = (self.teed_index - 1) % len(self.teed_images)
             self.show_teed_image()
+        elif self.mode == "DEXINED" and self.dexined_images:
+            self.dexined_index = (self.dexined_index - 1) % len(self.dexined_images)
+            self.show_dexined_image()
 
 root = tk.Tk()
 app = EdgeDetApp(root)
