@@ -88,6 +88,15 @@ DexiNed is a **deeper and more expressive edge detection network**, designed to 
 
 DexiNed is also trained on the **BIPED dataset**, making it well-suited for real-world edge detection tasks.
 
+### Model Training and Evaluation on the BIPED Dataset
+
+For training the **DexiNed model**, I used the **BIPED (Barcelona Images for Perceptual Edge Detection)** dataset, which is specifically designed for benchmarking edge detection algorithms. BIPED consists of high-resolution outdoor images that have been carefully annotated at the edge level by experts, making it well-suited for training convolutional neural networks for edge detection tasks. In the dataset, 200 images are typically used for training and 50 images for testing, and it has been widely adopted in edge detection research. ([HyperAI][1])
+
+You can download the BIPED dataset from Kaggle here:
+**[https://www.kaggle.com/datasets/xavysp/biped](https://www.kaggle.com/datasets/xavysp/biped)** *(or search “BIPED edge detection dataset” on Kaggle)*.
+
+I trained DexiNed on this dataset and also evaluated its performance on the test split to visually demonstrate its capability to accurately detect edges in complex natural scenes. The results shown in the demo video and screenshots are based on these trained and tested models.
+
 ---
 
 ## 🗂 Project Structure
