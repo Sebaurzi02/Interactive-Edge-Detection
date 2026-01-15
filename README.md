@@ -68,6 +68,12 @@ a dataset specifically designed for **perceptual edge detection** in urban scene
 
 Unlike classical methods such as Canny, TEED does **not rely on manual thresholds**, but learns directly from data what constitutes a meaningful edge.
 
+### Model Evaluation with TEED on the BSDS500 Dataset
+
+For evaluation, I tested the TEED model on the **BSDS500 dataset**, one of the most widely used benchmarks in edge detection research. BSDS500 contains 500 natural images with human-annotated ground truth edge maps and is commonly used to compare the performance of different edge detection algorithms. The dataset is publicly available at: **[https://www.kaggle.com/datasets/balraj98/bsds500](https://www.kaggle.com/datasets/balraj98/bsds500)**
+
+The model was applied to the BSDS500 test set to analyze its generalization ability and to compare its output with classical methods and other deep learning approaches. The results demonstrate that TEED is capable of producing precise and visually coherent edge maps, even when evaluated on data different from the one used for training.
+
 ---
 
 ### DexiNed – Dense Extreme Inception Network
