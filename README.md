@@ -105,28 +105,6 @@ I trained DexiNed on this dataset and also evaluated its performance on the test
 
 ---
 
-## 🗂 Project Structure
-
-```text
-.
-├── notebooks/
-│   └── interactive_edge_detection.ipynb
-├── algorithms/
-│   ├── canny.py
-├── datasets/
-│   └── BSDS500/
-├── models/
-│   ├── teed/
-│   └── dexined/
-├── utils/
-│   ├── io.py
-│   ├── noise.py
-│   └── visualization.py
-└── README.md
-```
-
----
-
 ## 🖥 Interactive Usage
 
 The project supports:
