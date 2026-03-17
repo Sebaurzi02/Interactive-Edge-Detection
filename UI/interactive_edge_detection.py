@@ -1,6 +1,7 @@
 import sys
 from pathlib import Path
 import subprocess
+import time
 import shutil
 import threading
 
@@ -32,6 +33,13 @@ class EdgeDetApp:
         self.mode = "CLASSIC"
         self.current_img = None
         self.processing = False
+        self.last_result = None
+        self.last_runtime = None
+        self.overlay_var = tk.BooleanVar(value=False)
+        self.low_var = tk.DoubleVar(value=20.0)
+        self.high_var = tk.DoubleVar(value=50.0)
+        self.sigma_var = tk.DoubleVar(value=1.0)
+        self.T_var = tk.DoubleVar(value=0.3)
 
         # -------------------------
         # Path progetto
@@ -64,24 +72,28 @@ class EdgeDetApp:
         # -------------------------
         # Stile ttk
         # -------------------------
+        self.master.configure(bg="#1f1f1f")
+
         self.style = ttk.Style()
         try:
             self.style.theme_use("clam")
         except Exception:
             pass
 
-        self.style.configure("TLabel", background="#ececec", font=("Segoe UI", 10))
-        self.style.configure("Title.TLabel", background="#ececec", font=("Segoe UI", 20, "bold"))
-        self.style.configure("Section.TLabel", background="#f7f7f7", font=("Segoe UI", 11, "bold"))
-        self.style.configure("Card.TFrame", background="#f7f7f7", relief="flat")
-        self.style.configure("Sidebar.TFrame", background="#e4e4e4")
-        self.style.configure("Main.TFrame", background="#ececec")
+        self.style.configure("TLabel", background="#1f1f1f", foreground="#f2f2f2", font=("Segoe UI", 10))
+        self.style.configure("Title.TLabel", background="#1f1f1f", foreground="#ffffff", font=("Segoe UI", 20, "bold"))
+        self.style.configure("Section.TLabel", background="#2a2a2a", foreground="#ffffff", font=("Segoe UI", 11, "bold"))
+        self.style.configure("Card.TFrame", background="#2a2a2a", relief="flat")
+        self.style.configure("Sidebar.TFrame", background="#181818")
+        self.style.configure("Main.TFrame", background="#1f1f1f")
         self.style.configure("TButton", font=("Segoe UI", 10), padding=6)
         self.style.configure("Accent.TButton", font=("Segoe UI", 10, "bold"), padding=8)
         self.style.configure("TCombobox", padding=4)
+        self.style.configure("Horizontal.TProgressbar", troughcolor="#2a2a2a", background="#4da3ff", bordercolor="#2a2a2a", lightcolor="#4da3ff", darkcolor="#4da3ff")
 
         self.build_ui()
         self.set_status("Ready")
+        self.master.protocol("WM_DELETE_WINDOW", self.on_close)
 
     # =========================================================
     # UI
@@ -115,7 +127,8 @@ class EdgeDetApp:
         ttk.Label(
             header,
             text="Canny, TEED e DexiNed in un'unica interfaccia",
-            background="#e4e4e4",
+            background="#181818",
+            foreground="#cfcfcf",
             font=("Segoe UI", 9)
         ).pack(anchor="w", pady=(2, 0))
 
@@ -125,7 +138,7 @@ class EdgeDetApp:
 
         ttk.Label(self.input_card, text="Input", style="Section.TLabel").pack(anchor="w", padx=12, pady=(12, 6))
 
-        ttk.Button(self.input_card, text="Load Image", command=self.load_image).pack(fill="x", padx=12, pady=(0, 10))
+        ttk.Button(self.input_card, text="Load Image", command=self.load_image).pack(fill="x", padx=12, pady=(0, 8))
 
         ttk.Label(self.input_card, text="Select Algorithm:").pack(anchor="w", padx=12)
         self.alg_var = tk.StringVar(value="Canny")
@@ -139,6 +152,10 @@ class EdgeDetApp:
         self.alg_menu.bind("<<ComboboxSelected>>", self.on_algorithm_change)
 
         ttk.Button(self.input_card, text="Run Algorithm", command=self.run_algorithm, style="Accent.TButton").pack(
+            fill="x", padx=12, pady=(0, 8)
+        )
+
+        ttk.Button(self.input_card, text="Save Result", command=self.save_result).pack(
             fill="x", padx=12, pady=(0, 12)
         )
 
@@ -151,10 +168,19 @@ class EdgeDetApp:
         self.canny_frame = ttk.Frame(self.canny_card, style="Card.TFrame")
         self.canny_frame.pack(fill="x", padx=12, pady=(0, 12))
 
-        self._make_labeled_entry(self.canny_frame, "Low threshold:", "20", 0, "low_entry")
-        self._make_labeled_entry(self.canny_frame, "High threshold:", "50", 1, "high_entry")
-        self._make_labeled_entry(self.canny_frame, "Sigma:", "1", 2, "sigma_entry")
-        self._make_labeled_entry(self.canny_frame, "T (hysteresis):", "0.3", 3, "T_entry")
+        self._make_slider(self.canny_frame, "Low threshold", self.low_var, 0, 0, 255)
+        self._make_slider(self.canny_frame, "High threshold", self.high_var, 1, 0, 255)
+        self._make_slider(self.canny_frame, "Sigma", self.sigma_var, 2, 0.1, 5.0)
+        self._make_slider(self.canny_frame, "T (hysteresis)", self.T_var, 3, 0.0, 1.0)
+
+        ttk.Checkbutton(
+            self.canny_frame,
+            text="Overlay edges on input",
+            variable=self.overlay_var,
+            command=self.refresh_canny_if_possible
+        ).grid(row=4, column=0, columnspan=3, sticky="w", pady=(8, 0))
+
+        self.canny_frame.grid_columnconfigure(1, weight=1)
 
         # Card: TEED dataset
         self.teed_card = ttk.Frame(self.sidebar, style="Card.TFrame")
@@ -210,7 +236,19 @@ class EdgeDetApp:
         ttk.Button(nav_btn_frame, text="Next ▶", command=self.next_image).pack(side="left", fill="x", expand=True, padx=(4, 0))
 
         self.image_counter_var = tk.StringVar(value="Image: 0 / 0")
-        ttk.Label(self.nav_card, textvariable=self.image_counter_var).pack(anchor="w", padx=12, pady=(8, 12))
+        ttk.Label(self.nav_card, textvariable=self.image_counter_var).pack(anchor="w", padx=12, pady=(8, 4))
+
+        self.runtime_var = tk.StringVar(value="Runtime: --")
+        ttk.Label(self.nav_card, textvariable=self.runtime_var).pack(anchor="w", padx=12, pady=(0, 12))
+
+        # Card: processing
+        self.processing_card = ttk.Frame(self.sidebar, style="Card.TFrame")
+        self.processing_card.pack(fill="x", padx=14, pady=8)
+
+        ttk.Label(self.processing_card, text="Processing", style="Section.TLabel").pack(anchor="w", padx=12, pady=(12, 8))
+
+        self.progress = ttk.Progressbar(self.processing_card, mode="indeterminate", style="Horizontal.TProgressbar")
+        self.progress.pack(fill="x", padx=12, pady=(0, 12))
 
         # Card: log
         self.log_card = ttk.Frame(self.sidebar, style="Card.TFrame")
@@ -222,8 +260,9 @@ class EdgeDetApp:
             self.log_card,
             height=12,
             wrap="word",
-            bg="#ffffff",
-            fg="#222222",
+            bg="#111111",
+            fg="#e8e8e8",
+            insertbackground="#ffffff",
             font=("Consolas", 9),
             relief="flat",
             borderwidth=1
@@ -236,23 +275,23 @@ class EdgeDetApp:
         topbar.pack(fill="x", pady=(0, 10))
 
         self.viewer_title_var = tk.StringVar(value="Visualization")
-        ttk.Label(topbar, textvariable=self.viewer_title_var, font=("Segoe UI", 14, "bold"), background="#ececec").pack(
+        ttk.Label(topbar, textvariable=self.viewer_title_var, font=("Segoe UI", 14, "bold"), background="#1f1f1f", foreground="#ffffff").pack(
             side="left", anchor="w"
         )
 
         self.viewer_subtitle_var = tk.StringVar(value="Load an image or a dataset to start")
-        ttk.Label(topbar, textvariable=self.viewer_subtitle_var, font=("Segoe UI", 10), background="#ececec").pack(
+        ttk.Label(topbar, textvariable=self.viewer_subtitle_var, font=("Segoe UI", 10), background="#1f1f1f", foreground="#cfcfcf").pack(
             side="right", anchor="e"
         )
 
-        plot_frame = tk.Frame(self.main_area, bg="#ffffff", bd=0, relief="flat")
+        plot_frame = tk.Frame(self.main_area, bg="#111111", bd=0, relief="flat")
         plot_frame.pack(fill="both", expand=True)
 
         self.fig, self.ax = plt.subplots(1, 2, figsize=(12, 6))
-        self.fig.patch.set_facecolor("#ffffff")
+        self.fig.patch.set_facecolor("#111111")
 
         for a in self.ax:
-            a.set_facecolor("#ffffff")
+            a.set_facecolor("#111111")
             a.axis("off")
 
         self.fig.tight_layout(pad=2.0)
@@ -265,12 +304,12 @@ class EdgeDetApp:
             self.master,
             textvariable=self.status_var,
             anchor="w",
-            bd=1,
-            relief="sunken",
-            bg="#dddddd",
-            fg="#222222",
+            bd=0,
+            relief="flat",
+            bg="#151515",
+            fg="#f2f2f2",
             padx=8,
-            pady=4,
+            pady=6,
             font=("Segoe UI", 9)
         )
         self.status_bar.pack(side="bottom", fill="x")
@@ -282,6 +321,24 @@ class EdgeDetApp:
         entry.grid(row=row, column=1, sticky="ew", pady=4)
         parent.grid_columnconfigure(1, weight=1)
         setattr(self, attr_name, entry)
+    
+    def _make_slider(self, parent, label, variable, row, min_val, max_val):
+        ttk.Label(parent, text=label).grid(row=row, column=0, sticky="w", pady=4, padx=(0, 6))
+
+        scale = ttk.Scale(
+            parent,
+            variable=variable,
+            from_=min_val,
+            to=max_val,
+            orient="horizontal",
+            command=lambda _=None: self.on_slider_change()
+        )
+        scale.grid(row=row, column=1, sticky="ew", pady=4)
+
+        value_label = ttk.Label(parent, text=f"{variable.get():.2f}")
+        value_label.grid(row=row, column=2, sticky="e", padx=(6, 0))
+
+        setattr(self, f"{label.lower().replace(' ', '_').replace('(', '').replace(')', '')}_value_label", value_label)
 
     # =========================================================
     # Utility UI
@@ -293,9 +350,48 @@ class EdgeDetApp:
         self.log_text.see("end")
         self.log_text.config(state="disabled")
 
+    def on_slider_change(self):
+        self.low_threshold_value_label.config(text=f"{self.low_var.get():.2f}")
+        self.high_threshold_value_label.config(text=f"{self.high_var.get():.2f}")
+        self.sigma_value_label.config(text=f"{self.sigma_var.get():.2f}")
+        self.t_hysteresis_value_label.config(text=f"{self.T_var.get():.2f}")
+        self.refresh_canny_if_possible()
+
+    def refresh_canny_if_possible(self):
+        if self.mode == "CLASSIC" and self.current_img is not None and not self.processing:
+            self.run_canny()
+
     def set_status(self, message):
         self.status_var.set(message)
         self.master.update_idletasks()
+
+    def set_runtime(self, seconds=None):
+        if seconds is None:
+            self.runtime_var.set("Runtime: --")
+        else:
+            self.runtime_var.set(f"Runtime: {seconds:.3f} s")
+
+    def save_result(self):
+        if self.last_result is None:
+            self.show_error("Save Error", "No result available to save.")
+            return
+
+        save_path = filedialog.asksaveasfilename(
+            title="Save result",
+            defaultextension=".png",
+            filetypes=[("PNG Image", "*.png"), ("JPEG Image", "*.jpg"), ("BMP Image", "*.bmp")]
+        )
+
+        if not save_path:
+            return
+
+        try:
+            plt.imsave(save_path, self.last_result, cmap="gray")
+            self.set_status(f"Saved result: {Path(save_path).name}")
+            self.log(f"[SAVE] Result saved to: {save_path}")
+        except Exception as e:
+            self.show_error("Save Error", str(e))
+            self.log(f"[SAVE] Error: {e}")
 
     def set_viewer_info(self, title, subtitle=""):
         self.viewer_title_var.set(title)
@@ -379,17 +475,18 @@ class EdgeDetApp:
 
         self.ax[0].clear()
         self.ax[0].imshow(self.current_img, cmap="gray")
-        self.ax[0].set_title("Input Image", fontsize=13)
+        self.ax[0].set_title("Input Image", fontsize=13, color="white")
         self.ax[0].axis("off")
 
         self.ax[1].clear()
-        self.ax[1].set_title("Output", fontsize=13)
+        self.ax[1].set_title("Output", fontsize=13, color="white")
         self.ax[1].axis("off")
 
         self.canvas.draw()
         self.set_status(f"Loaded image: {Path(file_path).name}")
         self.set_viewer_info("Canny Visualization", Path(file_path).name)
         self.update_image_counter(1, 1)
+        self.set_runtime(None)
         self.log(f"[CLASSIC] Loaded image: {file_path}")
 
     def load_teed_image(self, file_path):
@@ -410,11 +507,11 @@ class EdgeDetApp:
         input_img = load_single_image(str(dst))
         self.ax[0].clear()
         self.ax[0].imshow(input_img, cmap="gray")
-        self.ax[0].set_title("TEED Input", fontsize=13)
+        self.ax[0].set_title("TEED Input", fontsize=13, color="white")
         self.ax[0].axis("off")
 
         self.ax[1].clear()
-        self.ax[1].set_title("TEED Output", fontsize=13)
+        self.ax[1].set_title("TEED Output", fontsize=13, color="white")
         self.ax[1].axis("off")
         self.canvas.draw()
 
@@ -468,10 +565,10 @@ class EdgeDetApp:
             return
 
         try:
-            low = float(self.low_entry.get())
-            high = float(self.high_entry.get())
-            sigma = float(self.sigma_entry.get())
-            T = float(self.T_entry.get())
+            low = float(self.low_var.get())
+            high = float(self.high_var.get())
+            sigma = float(self.sigma_var.get())
+            T = float(self.T_var.get())
         except ValueError:
             self.show_error("Invalid Parameters", "Canny parameters must be numeric.")
             return
@@ -480,17 +577,39 @@ class EdgeDetApp:
             self.set_status("Running Canny...")
             self.log(f"[CANNY] low={low}, high={high}, sigma={sigma}, T={T}")
 
+            start = time.perf_counter()
             result = canny_pip(self.current_img, low, high, sigma, T)
+            elapsed = time.perf_counter() - start
+
             result = np.asarray(result, dtype=np.float32)
+            self.last_result = result
+            self.last_runtime = elapsed
+            self.set_runtime(elapsed)
 
             self.ax[1].clear()
-            self.ax[1].imshow(result, cmap="gray")
-            self.ax[1].set_title("Canny Output", fontsize=13)
-            self.ax[1].axis("off")
 
+            if self.overlay_var.get():
+                base = np.asarray(self.current_img, dtype=np.float32)
+                if base.max() > 1.0:
+                    base = base / 255.0
+
+                edges = np.asarray(result, dtype=np.float32)
+                if edges.max() > 1.0:
+                    edges = edges / 255.0
+
+                overlay = np.dstack([base, base, base])
+                overlay[..., 0] = np.maximum(overlay[..., 0], edges)
+                self.ax[1].imshow(overlay)
+                self.ax[1].set_title("Canny Overlay", fontsize=13, color="white")
+            else:
+                self.ax[1].imshow(result, cmap="gray")
+                self.ax[1].set_title("Canny Output", fontsize=13, color="white")
+
+            self.ax[1].axis("off")
             self.canvas.draw()
+
             self.set_status("Canny completed")
-            self.log("[CANNY] Completed successfully")
+            self.log(f"[CANNY] Completed successfully in {elapsed:.3f}s")
 
         except Exception as e:
             self.show_error("Canny Error", str(e))
@@ -514,12 +633,12 @@ class EdgeDetApp:
 
         self.ax[0].clear()
         self.ax[0].imshow(input_img, cmap="gray")
-        self.ax[0].set_title("TEED Input", fontsize=13)
+        self.ax[0].set_title("TEED Input", fontsize=13, color="white")
         self.ax[0].axis("off")
 
         self.ax[1].clear()
         self.ax[1].imshow(output_img, cmap="gray")
-        self.ax[1].set_title("TEED Output", fontsize=13)
+        self.ax[1].set_title("TEED Output", fontsize=13, color="white")
         self.ax[1].axis("off")
 
         self.canvas.draw()
@@ -527,6 +646,7 @@ class EdgeDetApp:
         self.update_image_counter(self.teed_index + 1, len(self.teed_images))
         self.set_status(f"Showing TEED result {self.teed_index + 1}/{len(self.teed_images)}")
         self.set_viewer_info("TEED Visualization", output_path.name)
+        self.last_result = output_img
 
     def show_dexined_image(self):
         if not self.dexined_images:
@@ -545,12 +665,12 @@ class EdgeDetApp:
 
         self.ax[0].clear()
         self.ax[0].imshow(input_img, cmap="gray")
-        self.ax[0].set_title("DexiNed Input", fontsize=13)
+        self.ax[0].set_title("DexiNed Input", fontsize=13, color="white")
         self.ax[0].axis("off")
 
         self.ax[1].clear()
         self.ax[1].imshow(output_img, cmap="gray")
-        self.ax[1].set_title(f"DexiNed Output ({self.dexined_var.get()})", fontsize=13)
+        self.ax[1].set_title(f"DexiNed Output ({self.dexined_var.get()})", fontsize=13, color="white")
         self.ax[1].axis("off")
 
         self.canvas.draw()
@@ -558,6 +678,7 @@ class EdgeDetApp:
         self.update_image_counter(self.dexined_index + 1, len(self.dexined_images))
         self.set_status(f"Showing DexiNed result {self.dexined_index + 1}/{len(self.dexined_images)}")
         self.set_viewer_info("DexiNed Visualization", output_path.name)
+        self.last_result = output_img
 
     # =========================================================
     # Load risultati
@@ -639,6 +760,7 @@ class EdgeDetApp:
         self.set_status("Running TEED...")
 
         try:
+            start = time.perf_counter()
             result = subprocess.run(
                 cmd,
                 cwd=teed_dir,
@@ -646,6 +768,8 @@ class EdgeDetApp:
                 capture_output=True,
                 text=True
             )
+            elapsed = time.perf_counter() - start
+            self.last_runtime = elapsed
 
             if result.stdout.strip():
                 self.log("[TEED][STDOUT]")
@@ -655,7 +779,7 @@ class EdgeDetApp:
                 self.log("[TEED][STDERR]")
                 self.log(result.stderr)
 
-            self.log("[TEED] Finished successfully")
+            self.log(f"[TEED] Finished successfully in {elapsed:.3f}s")
             self.set_status("TEED completed")
             return True
 
@@ -697,6 +821,7 @@ class EdgeDetApp:
         self.set_status("Running DexiNed...")
 
         try:
+            start = time.perf_counter()
             result = subprocess.run(
                 cmd,
                 cwd=self.dexined_dir,
@@ -704,6 +829,8 @@ class EdgeDetApp:
                 capture_output=True,
                 text=True
             )
+            elapsed = time.perf_counter() - start
+            self.last_runtime = elapsed
 
             if result.stdout.strip():
                 self.log("[DexiNed][STDOUT]")
@@ -713,7 +840,7 @@ class EdgeDetApp:
                 self.log("[DexiNed][STDERR]")
                 self.log(result.stderr)
 
-            self.log("[DexiNed] Finished successfully")
+            self.log(f"[DexiNed] Finished successfully in {elapsed:.3f}s")
             self.set_status("DexiNed completed")
             return True
 
@@ -759,6 +886,7 @@ class EdgeDetApp:
     def start_background_task(self, target):
         self.processing = True
         self.set_status("Processing...")
+        self.progress.start(10)
         thread = threading.Thread(target=target, daemon=True)
         thread.start()
 
@@ -768,7 +896,9 @@ class EdgeDetApp:
 
     def _finish_teed_pipeline(self, ok):
         self.processing = False
+        self.progress.stop()
         if ok:
+            self.set_runtime(self.last_runtime)
             self.load_teed_results()
 
     def _run_dexined_pipeline(self):
@@ -777,7 +907,9 @@ class EdgeDetApp:
 
     def _finish_dexined_pipeline(self, ok):
         self.processing = False
+        self.progress.stop()
         if ok:
+            self.set_runtime(self.last_runtime)
             self.load_dexined_results()
 
     # =========================================================
@@ -800,6 +932,50 @@ class EdgeDetApp:
         elif self.mode == "DEXINED" and self.dexined_images:
             self.dexined_index = (self.dexined_index - 1) % len(self.dexined_images)
             self.show_dexined_image()
+    
+    # =========================================================
+    # Cleanup automatico in chiusura
+    # =========================================================
+
+    def clear_directory(self, directory, label="DIR"):
+        try:
+            directory = Path(directory)
+            if not directory.exists():
+                self.log(f"[{label}] Directory not found, skipping: {directory}")
+                return
+
+            removed = 0
+            for item in directory.iterdir():
+                try:
+                    if item.is_file() or item.is_symlink():
+                        item.unlink()
+                        removed += 1
+                    elif item.is_dir():
+                        shutil.rmtree(item)
+                        removed += 1
+                except Exception as e:
+                    self.log(f"[{label}] Failed to remove {item}: {e}")
+
+            self.log(f"[{label}] Cleanup completed: {removed} item(s) removed from {directory}")
+        except Exception as e:
+            self.log(f"[{label}] Cleanup error: {e}")
+
+    def cleanup_teed(self):
+        self.clear_directory(self.teed_input_dir, "TEED-DATA")
+        self.clear_directory(self.teed_output_dir, "TEED-FUSED")
+
+    def cleanup_dexined(self):
+        self.clear_directory(self.dexined_fused_dir, "DEXINED-FUSED")
+        self.clear_directory(self.dexined_avg_dir, "DEXINED-AVG")
+
+    def on_close(self):
+        try:
+            self.set_status("Cleaning temporary folders before exit...")
+            self.cleanup_teed()
+            self.cleanup_dexined()
+        except Exception as e:
+            self.log(f"[CLOSE] Cleanup error: {e}")
+        self.master.destroy()
 
 
 if __name__ == "__main__":
