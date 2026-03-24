@@ -228,7 +228,7 @@ Alla chiusura del programma:
 
 * Analisi passo-passo
 
-## 🖥️ Applicazione Desktop
+##  Applicazione Desktop
 
 * UI completa
 * Test su dataset
@@ -237,7 +237,7 @@ Alla chiusura del programma:
 
 ---
 
-# 📝 Note
+#  Note
 
 * I modelli deep learning utilizzano:
 
