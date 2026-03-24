@@ -1,127 +1,255 @@
-# Interactive Edge Detection Benchmark
 
-This repository contains the development of an **interactive edge detection benchmarking framework**, designed to compare and analyze **classical** and **deep learning–based** edge detection algorithms.
+# Interactive Edge Detection Framework
 
-The project focuses on **visual comparison**, **robustness analysis**, and **modular experimentation**, providing both a Jupyter-based workflow and a standalone Python UI.
+Questo repository contiene lo sviluppo di un **framework interattivo per l’edge detection**, progettato per confrontare e analizzare **metodi classici** e **modelli basati su deep learning**.
 
----
+Il progetto è focalizzato su:
 
-##  Project Goals
+* confronto visivo tra algoritmi
+* analisi qualitativa dei risultati
+* sperimentazione interattiva
+* interfaccia grafica intuitiva
 
-* Load and process:
-
-  * **single images**
-  * **standard datasets** (e.g. BSDS500)
-* Dynamically select and run different edge detection algorithms
-* Visual comparison of input vs output
-* Analyze robustness to noise and parameter variations
-* Provide a modular and extensible experimental framework
+Include sia un workflow in **Jupyter Notebook** che una **UI standalone in Python (Tkinter + Matplotlib)**.
 
 ---
 
-##  Supported Methods
+# Obiettivi del progetto
 
-### Classical Edge Detectors
-* **Canny (custom implementation)**
+Il framework consente di:
 
-### Deep Learning–Based Edge Detectors
+* Caricare ed elaborare:
 
-* **TEED** (Tiny and Efficient Edge Detector)
-* **DexiNed** (Dense Extreme Inception Network)
+  * immagini singole
+  * dataset standard (es. **BSDS500**)
+* Selezionare dinamicamente l’algoritmo di edge detection
+* Visualizzare **input vs output**
+* Analizzare il comportamento degli algoritmi al variare dei parametri
+* Confrontare approcci classici e deep learning in modo intuitivo
 
 ---
 
-##  Canny Edge Detector (Custom Implementation)
+#  Metodi supportati
 
-The **Canny edge detector** included in this project is **implemented from scratch**,
-**without using external edge-detection libraries**, strictly following the **theoretical formulation** and the classical steps of the algorithm:
+##  Edge Detector Classici
+
+* **Canny (implementazione custom)**
+
+##  Edge Detector Deep Learning
+
+* **TEED (Tiny and Efficient Edge Detector)**
+* **DexiNed (Dense Extreme Inception Network)**
+
+---
+
+#  Canny Edge Detector (Implementazione Custom)
+
+L’algoritmo di **Canny** è implementato **completamente da zero**, senza l’uso di librerie esterne, seguendo la formulazione teorica classica.
+
+### Pipeline:
 
 1. Gaussian smoothing
-2. Gradient computation
-3. Non-maximum suppression
-4. Double thresholding
+2. Calcolo del gradiente
+3. Non-Maximum Suppression
+4. Double threshold
 5. Edge tracking by hysteresis
 
-This allows:
+### Vantaggi:
 
-* full control over each stage
-* educational inspection of the algorithm
-* fair comparison with learning-based approaches
-
----
-
-##  Deep Learning Models
-
-### TEED – Tiny and Efficient Edge Detector
-
-TEED is a **lightweight convolutional neural network** for edge detection, designed to achieve a strong balance between **accuracy and computational efficiency**.
-
-**Key characteristics:**
-
-* Compact CNN architecture
-* Multi-scale feature extraction
-* Supervised training
-* Robust to noise and texture variations
-
-TEED is trained on the **BIPED dataset (Barcelona Images for Perceptual Edge Detection)**,
-a dataset specifically designed for **perceptual edge detection** in urban scenes.
-
-Unlike classical methods such as Canny, TEED does **not rely on manual thresholds**, but learns directly from data what constitutes a meaningful edge.
-
-### Model Evaluation with TEED on the BSDS500 Dataset
-
-For evaluation, I tested the TEED model on the **BSDS500 dataset**, one of the most widely used benchmarks in edge detection research. BSDS500 contains 500 natural images with human-annotated ground truth edge maps and is commonly used to compare the performance of different edge detection algorithms. The dataset is publicly available at: **[https://www.kaggle.com/datasets/balraj98/bsds500](https://www.kaggle.com/datasets/balraj98/bsds500)**
-
-The model was applied to the BSDS500 test set to analyze its generalization ability and to compare its output with classical methods and other deep learning approaches. The results demonstrate that TEED is capable of producing precise and visually coherent edge maps, even when evaluated on data different from the one used for training.
+* Controllo completo dell’algoritmo
+* Possibilità di analisi didattica
+* Confronto diretto con modelli deep learning
 
 ---
 
-### DexiNed – Dense Extreme Inception Network
+#  Modelli Deep Learning
 
-DexiNed is a **deeper and more expressive edge detection network**, designed to capture edges at **multiple semantic levels**.
+##  TEED – Tiny and Efficient Edge Detector
 
-**How it works:**
+TEED è una **CNN leggera** progettata per bilanciare:
 
-* Combines **Dense blocks** and **Inception-style modules**
-* Produces multiple **side-output edge maps**
-* Fuses these maps into a final, refined edge representation
+* accuratezza
+* efficienza computazionale
 
-**Key characteristics:**
+### Caratteristiche:
 
-* Multi-scale and multi-level edge detection
-* Strong generalization capability
-* Particularly effective in complex scenes
+* Architettura compatta
+* Feature multi-scala
+* Robustezza a rumore e texture
+* Nessun tuning manuale dei parametri
 
-DexiNed is also trained on the **BIPED dataset**, making it well-suited for real-world edge detection tasks.
+### Dataset:
 
-### Model Training and Evaluation on the BIPED Dataset
-
-For training the **DexiNed model**, I used the **BIPED (Barcelona Images for Perceptual Edge Detection)** dataset, which is specifically designed for benchmarking edge detection algorithms. BIPED consists of high-resolution outdoor images that have been carefully annotated at the edge level by experts, making it well-suited for training convolutional neural networks for edge detection tasks. In the dataset, 200 images are typically used for training and 50 images for testing, and it has been widely adopted in edge detection research. ([HyperAI][1])
-
-You can download the BIPED dataset from Kaggle here:
-**[https://www.kaggle.com/datasets/xavysp/biped](https://www.kaggle.com/datasets/xavysp/biped)** *(or search “BIPED edge detection dataset” on Kaggle)*.
-
-I trained DexiNed on this dataset and also evaluated its performance on the test split to visually demonstrate its capability to accurately detect edges in complex natural scenes. The results shown in the demo video and screenshots are based on these trained and tested models.
+* Training: **BIPED**
+* Test: **BSDS500**
 
 ---
 
-## 🖥 Interactive Usage
+##  DexiNed – Dense Extreme Inception Network
 
-The project supports:
+DexiNed è un modello più profondo e complesso, progettato per catturare:
 
-* **Jupyter Notebook** interaction (via `ipywidgets`)
-* **Standalone Python UI** (Tkinter + Matplotlib) with:
+* dettagli fini
+* strutture semantiche
 
-  * algorithm selection
-  * parameter tuning (for Canny)
-  * dataset-based inference (for TEED / DexiNed)
-  * navigation through results
+### Architettura:
+
+* Dense blocks
+* Moduli Inception
+* Side outputs multi-scala
+* Fusione finale delle edge maps
+
+### Caratteristiche:
+
+* Edge detection multi-scala
+* Buona generalizzazione
+* Adatto a scene complesse
+
+### Dataset:
+
+* Training: **BIPED**
 
 ---
 
-##  Notes
+#  Interfaccia Grafica (UI)
 
-* Deep learning models are executed using their **original implementations and pretrained weights**
-* The framework focuses on **qualitative comparison**, extensibility, and clarity
-* Designed for experimentation, benchmarking, and educational purposes
+Il progetto include una **UI standalone avanzata** sviluppata in:
+
+* **Tkinter**
+* **Matplotlib**
+
+---
+
+##  Funzionalità principali
+
+###  Controllo algoritmi
+
+* Selezione dinamica:
+
+  * Canny
+  * TEED
+  * DexiNed
+
+---
+
+###  Parametri Canny interattivi
+
+* Slider in tempo reale per:
+
+  * threshold basso
+  * threshold alto
+  * sigma
+  * hysteresis
+
+---
+
+###  Visualizzazione
+
+* Input e Output affiancati
+* Modalità:
+
+  * edge map
+  * overlay su immagine originale
+* Navigazione tra immagini (dataset)
+
+---
+
+###  Tempo di esecuzione
+
+* Visualizzazione del tempo per ogni algoritmo
+* Utile per confronti qualitativi delle prestazioni
+
+---
+
+### Log e monitoraggio
+
+* Output dettagliato delle operazioni
+* Debug semplice degli errori
+
+---
+
+###  Esecuzione modelli
+
+* TEED e DexiNed eseguiti tramite:
+
+  * `subprocess`
+  * thread separati
+
+---
+
+###  Progress Bar
+
+* Feedback visivo durante l’esecuzione
+
+---
+
+###  Salvataggio risultati
+
+* Export delle immagini generate
+* Supporto PNG / JPG
+
+---
+
+###  Pulizia automatica
+
+Alla chiusura del programma:
+
+* eliminazione dati temporanei TEED
+* eliminazione risultati DexiNed
+* pulizia directory output
+
+---
+
+#  Dataset utilizzati
+
+##  BSDS500
+
+* 500 immagini naturali
+* Annotazioni multiple
+* Standard per test qualitativi
+
+📎 [https://www.kaggle.com/datasets/balraj98/bsds500](https://www.kaggle.com/datasets/balraj98/bsds500)
+
+---
+
+##  BIPED
+
+* Dataset per edge detection percettiva
+* Scene urbane ad alta qualità
+* Annotazioni accurate
+
+📎 [https://www.kaggle.com/datasets/xavysp/biped](https://www.kaggle.com/datasets/xavysp/biped)
+
+---
+
+#  Modalità di utilizzo
+
+##  Jupyter Notebook
+
+* Analisi passo-passo
+
+## 🖥️ Applicazione Desktop
+
+* UI completa
+* Test su dataset
+* Navigazione risultati
+* Confronto visivo immediato
+
+---
+
+# 📝 Note
+
+* I modelli deep learning utilizzano:
+
+  * implementazioni originali
+  * pesi pre-addestrati
+* Il progetto è focalizzato su:
+
+  * studio
+  * sperimentazione
+  * presentazioni accademiche
+
+---
+
+> Questo progetto è stato sviluppato come ambiente interattivo per l’analisi e il confronto tra algoritmi di edge detection classici e basati su deep learning.
 
